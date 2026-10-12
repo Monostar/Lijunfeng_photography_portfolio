@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LI JUNFENG · Photography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@300;400;500&family=EB+Garamond:wght@400;500&family=Noto+Serif+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ==========================================================
+     0. Reset & 全局变量
+     ========================================================== */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --bg: #fafaf9;
+    --fg: #1d1d1f;
+    --muted: #86868b;
+    --serif-en: "Spectral", "EB Garamond", Georgia, serif;
+    --serif-zh: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--sans);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+    background: radial-gradient(ellipse at 50% 40%, #ffffff 0%, #fafaf9 60%, #f3f3f0 100%);
+  }
+
+  /* ==========================================================
+     1. 雨滴 & 积水
+     ========================================================== */
+  #rainCanvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+  #rainCanvas.active { opacity: 1; }
+
+  #flood {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(
+      to top,
+      rgba(70, 90, 120, 0.62) 0%,
+      rgba(110, 140, 175, 0.42) 60%,
+      rgba(150, 180, 210, 0.22) 100%
+    );
+    backdrop-filter: blur(1.2px);
+    -webkit-backdrop-filter: blur(1.2px);
+  }
+  #flood::before {
+    content: "";
+    position: absolute;
+    top: -1px; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(to right,
+      rgba(255,255,255,0.08),
+      rgba(255,255,255,0.55),
+      rgba(255,255,255,0.08));
+    filter: blur(0.5px);
+  }
+
+  /* ==========================================================
+     2. 可漂浮元素
+     ========================================================== */
+  .float-char { display: inline-block; will-change: transform; }
+  .float-space { width: 0.3em; }
+
+  /* ==========================================================
+     3. Hero
+     ========================================================== */
+  #hero {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.9s var(--ease-out),
+                transform 1.3s var(--ease-out),
+                filter 0.9s var(--ease-out);
+  }
+  #hero.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.06);
+    filter: blur(12px);
+  }
+
+  .hero-inner {
+    position: relative;
+    text-align: center;
+    cursor: pointer;
+    padding: 160px 40px 120px;
+    user-select: none;
+  }
+  .hero-inner.floating { cursor: default; }
+
+  .name {
+    font-family: var(--serif-en);
+    font-size: clamp(3rem, 9vw, 5rem);
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    color: var(--fg);
+    transition: letter-spacing 1.3s var(--ease-out),
+                transform 1.3s var(--ease-out);
+  }
+  .hero-inner:not(.floating):hover .name {
+    letter-spacing: 0.14em;
+    transform: scale(1.015);
+  }
+
+  .avatar {
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: 36px;
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #e0e0e2, #b8b8bc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    font-weight: 300;
+    color: #fff;
+    overflow: hidden;
+    opacity: 0;
+    transform: translate(-50%, 36px) scale(0.88);
+    filter: blur(10px);
+    pointer-events: none;
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.18);
+    transition: opacity 0.8s var(--ease-out),
+                transform 1.2s var(--ease-out),
+                filter 0.8s var(--ease-out);
+  }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .hero-inner:not(.floating):hover .avatar {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+    filter: blur(0);
+  }
+  .hero-inner.floating .avatar {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  .bio {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    margin-top: 36px;
+    transform: translate(-50%, -36px);
+    opacity: 0;
+    filter: blur(10px);
+    text-align: center;
+    pointer-events: none;
+    transition: opacity 0.8s var(--ease-out) 0.08s,
+                transform 1.2s var(--ease-out) 0.08s,
+                filter 0.8s var(--ease-out) 0.08s;
+  }
+  .hero-inner:not(.floating):hover .bio {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    filter: blur(0);
+  }
+  .hero-inner.floating .bio {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    filter: blur(0);
+  }
+
+  .bio-line {
+    font-family: var(--serif-zh);
+    font-size: 0.92rem;
+    font-weight: 400;
+    letter-spacing: 0.3em;
+    line-height: 2;
+    color: var(--muted);
+    white-space: nowrap;
+    pointer-events: auto;
+  }
+  .bio-line + .bio-line { margin-top: 4px; }
+
+  .hint {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.68rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    transition: opacity 0.6s var(--ease-out);
+  }
+  .hint.hidden { opacity: 0; }
+
+  /* ==========================================================
+     4. 内容页通用
+     ========================================================== */
+  .page {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    overflow-y: auto;
+    padding: 144px 40px 80px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s var(--ease-out);
+    z-index: 30;
+  }
+  .page.active { opacity: 1; pointer-events: auto; }
+  .page::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    height: 120px;
+    z-index: 5;
+    pointer-events: none;
+    background: linear-gradient(to bottom, #fff 0%, #fff 40%, rgba(250, 250, 249, 0.98) 60%, rgba(250, 250, 249, 0.76) 78%, rgba(250, 250, 249, 0) 100%);
+    opacity: 1;
+    backdrop-filter: blur(var(--topbar-blur, 0px));
+    -webkit-backdrop-filter: blur(var(--topbar-blur, 0px));
+    transition: backdrop-filter 0.12s linear;
+  }
+
+  .page-inner { max-width: 900px; margin: 0 auto; }
+
+  .back-btn {
+    position: fixed;
+    top: 32px;
+    left: 40px;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: inherit;
+    z-index: 40;
+    transition: color 0.35s var(--ease-out),
+                transform 0.5s var(--ease-out);
+  }
+  .back-btn:hover { color: var(--fg); transform: translateX(-3px); }
+  .back-btn.home-brand { text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* ==========================================================
+     5. 摄影集
+     ========================================================== */
+  .photo-layout { display: block; height: 100vh; position: relative; }
+
+  .photo-menu {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 340px;
+    max-width: 42vw;
+    height: 100vh;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0 0 0 8vw;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .photo-menu-title {
+    font-family: var(--serif-en);
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+  .photo-menu ul {
+    width: auto;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .photo-menu li { position: relative; flex: 0 0 auto; margin: 0; }
+
+  .menu-item {
+    background: none;
+    border: none;
+    font-family: var(--serif-zh);
+    font-size: 0.95rem;
+    font-weight: 300;
+    letter-spacing: 0.1em;
+    color: var(--fg);
+    padding: 12px 0;
+    cursor: pointer;
+    width: auto;
+    white-space: nowrap;
+    text-align: left;
+    transition: color 0.4s var(--ease-out);
+    position: relative;
+    z-index: 2;
+  }
+  .menu-item:hover,
+  .menu-item.active { color: var(--muted); }
+  .menu-preview {
+    position: fixed;
+    left: 43vw;
+    top: 50%;
+    width: min(48vw, 720px);
+    height: min(58vh, 620px);
+    object-fit: contain;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(22px, -50%) scale(0.96);
+    filter: blur(6px);
+    transition: opacity 0.85s ease, transform 1.05s var(--ease-out), filter 0.9s var(--ease-out);
+    z-index: 1;
+  }
+  .photo-menu li:hover .menu-preview,
+  .photo-menu li:focus-within .menu-preview {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+    filter: blur(0);
+  }
+
+  .photo-slideshow { display: none; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.6s var(--ease-out);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 120px 60px 60px;
+  }
+  .slide.active { opacity: 1; }
+  .slide img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  .photo-detail-inner { max-width: 1280px; }
+  .photo-detail-header {
+    display: flex;
+    gap: 48px;
+    margin-bottom: 36px;
+    align-items: flex-start;
+  }
+  .photo-detail-left { flex: 1; }
+  .photo-detail-left h1 {
+    font-family: var(--serif-zh);
+    font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    opacity: 0;
+    transform: translateY(24px);
+    filter: blur(8px);
+    transition: opacity 0.9s var(--ease-out),
+                transform 1s var(--ease-out),
+                filter 0.9s var(--ease-out);
+  }
+  .page.active .photo-detail-left h1 {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+    transition-delay: 0.3s;
+  }
+  .photo-detail-right { flex: 1; padding-top: 8px; }
+  .photo-detail-right p {
+    font-family: var(--serif-zh);
+    font-size: 0.95rem;
+    line-height: 2;
+    color: #555;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.9s var(--ease-out),
+                transform 0.9s var(--ease-out);
+  }
+  .page.active .photo-detail-right p {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.45s;
+  }
+
+  .photo-gallery { margin: 0 auto; }
+  .photo-feature {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    max-height: 68vh;
+    min-height: 320px;
+    background: transparent;
+    overflow: hidden;
+  }
+  .photo-feature-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='9' cy='9' r='6' fill='none' stroke='white' stroke-width='2.8'/%3E%3Cpath d='m13.5 13.5 6 6' fill='none' stroke='white' stroke-width='2.8' stroke-linecap='round'/%3E%3Ccircle cx='9' cy='9' r='6' fill='none' stroke='%232d2d2d' stroke-width='1.1'/%3E%3Cpath d='m13.5 13.5 6 6' fill='none' stroke='%232d2d2d' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E") 9 9, zoom-in;
+    background: transparent;
+  }
+  .photo-feature-hit-area {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 3;
+    width: 44%;
+    border: 0;
+    padding: 0;
+    background: transparent;
+  }
+  .photo-feature-hit-area.prev {
+    left: 0;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='20' viewBox='0 0 14 20'%3E%3Cpath d='M11 2 3 10l8 8' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M11 2 3 10l8 8' fill='none' stroke='%232d2d2d' stroke-width='1.05' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 7 10, w-resize;
+  }
+  .photo-feature-hit-area.next {
+    right: 0;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='20' viewBox='0 0 14 20'%3E%3Cpath d='m3 2 8 8-8 8' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m3 2 8 8-8 8' fill='none' stroke='%232d2d2d' stroke-width='1.05' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") 7 10, e-resize;
+  }
+  .photo-feature-nav {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(20, 20, 20, 0.48);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: background 0.25s ease, transform 0.25s ease;
+    display: none;
+  }
+  .photo-feature-nav:hover { background: rgba(20, 20, 20, 0.78); }
+  .photo-feature-nav:active { transform: translateY(-50%) scale(0.94); }
+  .photo-feature-nav.prev { left: 20px; }
+  .photo-feature-nav.next { right: 20px; }
+  .photo-feature-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 14px 0 22px;
+    color: var(--muted);
+    font-family: var(--serif-en);
+    font-size: 0.86rem;
+  }
+  .photo-thumbnails {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 22px 16px;
+    padding-bottom: 28px;
+  }
+  .photo-thumb {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    opacity: 1;
+    transition: outline-color 0.25s ease;
+  }
+  .photo-thumb:hover,
+  .photo-thumb.active { opacity: 1; }
+  .photo-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: transparent;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    transition: outline-color 0.25s ease;
+  }
+  .photo-thumb.active img { outline-color: var(--fg); }
+  .photo-thumb span {
+    display: block;
+    padding-top: 8px;
+    font-family: var(--serif-zh);
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+
+  /* ==========================================================
+     6. Lightbox
+     ========================================================== */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 10, 0.96);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s var(--ease-out);
+  }
+  .lightbox.active { opacity: 1; pointer-events: auto; }
+  .lightbox img {
+    max-width: 90vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 4px;
+  }
+  .lb-caption {
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.6);
+    max-width: 70vw;
+    text-align: center;
+  }
+  .lb-close,
+  .lb-prev,
+  .lb-next {
+    position: absolute;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 2.4rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.3s, transform 0.3s var(--ease-out);
+    line-height: 1;
+  }
+  .lb-close { top: 28px; right: 36px; font-size: 2rem; }
+  .lb-prev { left: 32px; top: 50%; transform: translateY(-50%); }
+  .lb-next { right: 32px; top: 50%; transform: translateY(-50%); }
+  .lb-close:hover,
+  .lb-prev:hover,
+  .lb-next:hover { color: #fff; }
+  .lb-prev:hover { transform: translateY(-50%) translateX(-4px); }
+  .lb-next:hover { transform: translateY(-50%) translateX(4px); }
+
+  /* ==========================================================
+     7. 语言切换
+     ========================================================== */
+  .lang-switch {
+    position: fixed;
+    top: 32px;
+    right: 40px;
+    z-index: 60;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lang-btn {
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: inherit;
+    letter-spacing: inherit;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 6px 4px;
+    transition: color 0.35s var(--ease-out),
+                transform 0.35s var(--ease-out);
+  }
+  .lang-btn:hover { color: var(--fg); }
+  .lang-btn.active { color: var(--fg); }
+  .lang-btn:active { transform: scale(0.92); }
+  .lang-divider { color: rgba(0,0,0,0.15); }
+
+  /* ==========================================================
+     8. 移动端
+     ========================================================== */
+  @media (max-width: 768px) {
+    .page { padding: 136px 24px 64px; }
+    .photo-layout { flex-direction: column; }
+    .photo-menu { width: 48%; max-width: none; padding: 0 0 0 24px; }
+    .photo-menu ul { flex-direction: column; gap: 8px; }
+    .photo-menu li { margin: 0; }
+    .menu-preview { left: 42vw; width: 54vw; height: 48vh; }
+    .photo-slideshow { height: 50vh; }
+    .photo-detail-header { flex-direction: column; gap: 20px; margin-bottom: 28px; }
+    .photo-thumbnails { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 12px; }
+    .photo-feature { min-height: 240px; }
+  }
+  @media (max-width: 640px) {
+    .hero-inner { padding: 120px 24px 80px; }
+    .bio-line { white-space: normal; }
+    .lang-switch { top: 20px; right: 20px; }
+  }
+</style>
+</head>
+<body>
+
+  <canvas id="rainCanvas"></canvas>
+  <div id="flood"></div>
+
+  <!-- Hero -->
+  <div id="hero">
+    <div class="hero-inner" id="heroInner">
+      <div class="avatar">J</div>
+      <h1 class="name" id="nameEl">LI JUNFENG</h1>
+      <div class="bio"></div>
+    </div>
+  </div>
+  <div class="hint" id="hint"></div>
+
+  <!-- 语言切换 -->
+  <div class="lang-switch" id="langSwitch">
+    <button class="lang-btn" data-lang="zh">中文</button>
+    <span class="lang-divider">/</span>
+    <button class="lang-btn" data-lang="en">EN</button>
+  </div>
+
+  <!-- Page: Photography -->
+  <section class="page" id="pagePhoto">
+    <button class="back-btn home-brand" id="backToHero">LI JUNFENG</button>
+    <div class="photo-layout">
+      <aside class="photo-menu">
+        <ul></ul>
+      </aside>
+      <div class="photo-slideshow" id="photoSlideshow"></div>
+    </div>
+  </section>
+
+  <!-- Page: Photography Detail -->
+  <section class="page" id="pagePhotoDetail">
+    <button class="back-btn" id="backToPhoto" data-i18n="back">← 返回</button>
+    <div class="page-inner photo-detail-inner">
+      <div class="photo-detail-header">
+        <div class="photo-detail-left"><h1 id="photoDetailTitle"></h1></div>
+        <div class="photo-detail-right"><p id="photoDetailDesc"></p></div>
+      </div>
+      <div class="photo-gallery">
+        <div class="photo-feature">
+          <button class="photo-feature-hit-area prev" id="photoPrev" type="button" aria-label="Previous photo"></button>
+          <button class="photo-feature-nav prev" type="button" aria-hidden="true" tabindex="-1">‹</button>
+          <img class="photo-feature-image" id="photoFeatureImage" src="" alt="">
+          <button class="photo-feature-hit-area next" id="photoNext" type="button" aria-label="Next photo"></button>
+          <button class="photo-feature-nav next" type="button" aria-hidden="true" tabindex="-1">›</button>
+        </div>
+        <div class="photo-feature-meta">
+          <span id="photoFeatureCaption"></span>
+          <span id="photoFeatureCount"></span>
+        </div>
+        <div class="photo-thumbnails" id="photoThumbnails"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox">
+    <button class="lb-close" id="lbClose">×</button>
+    <button class="lb-prev" id="lbPrev">‹</button>
+    <button class="lb-next" id="lbNext">›</button>
+    <img id="lbImage" src="" alt="">
+    <p class="lb-caption" id="lbCaption"></p>
+  </div>
+
+<script>
+/* ============================================================
+   A. 基础引用
+   ============================================================ */
+const hero     = document.getElementById('hero');
+const hint     = document.getElementById('hint');
+
+document.querySelectorAll('.page').forEach((page) => {
+  page.addEventListener('scroll', () => {
+    const progress = Math.min(page.scrollTop / 100, 1);
+    page.style.setProperty('--topbar-blur', `${progress * 12}px`);
+  }, { passive: true });
+});
+
+/* ============================================================
+   B. 语言系统
+   ============================================================ */
+let currentLang = localStorage.getItem('lang') || 'zh';
+
+const i18n = {
+  zh: {
+    bioLine1: '城市发展综合咨询',
+    bioLine2: '独立摄影师',
+    back: '← 返回',
+    collections: '摄影集',
+    menuChina: '中国游',
+    menuSouthAsia: '北印度洋',
+    menuSEAsia: '无主之地',
+    menuStill: 'CCCP'
+  },
+  en: {
+    bioLine1: 'Urban Development Consultant',
+    bioLine2: 'Independent Photographer',
+    back: '← Back',
+    collections: 'Collections',
+    menuChina: ' Traveling in China',
+    menuSouthAsia: 'Northern Indian Ocean',
+    menuSEAsia: 'Borderlands',
+    menuStill: 'CCCP'
+  }
+};
+
+function applyStaticText() {
+  const dict = i18n[currentLang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.dataset.i18n;
+    if (dict[key] !== undefined) el.innerHTML = dict[key];
+  });
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+
+  applyStaticText();
+  renderMenu();
+
+  if (phase === 'idle') {
+    resetCharSplitting();
+  }
+
+  if (document.getElementById('pagePhotoDetail').classList.contains('active') && currentCollectionKey) {
+    openCollection(currentCollectionKey, true);
+  }
+}
+
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => setLang(btn.dataset.lang));
+});
+
+/* ============================================================
+   C. 数据：摄影集菜单
+   ============================================================ */
+const menuData = [
+  { key: 'china',     i18n: 'menuChina' },
+  { key: 'southasia', i18n: 'menuSouthAsia' },
+  { key: 'seasia',    i18n: 'menuSEAsia' },
+  { key: 'still',     i18n: 'menuStill' }
+];
+
+function renderMenu() {
+  const ul = document.querySelector('.photo-menu ul');
+  ul.innerHTML = '';
+  menuData.forEach(m => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.className = 'menu-item';
+    btn.dataset.collection = m.key;
+    btn.textContent = i18n[currentLang][m.i18n];
+    btn.addEventListener('click', () => openCollection(m.key));
+    const preview = document.createElement('img');
+    preview.className = 'menu-preview';
+    preview.src = collections[m.key][currentLang].photos[0].src;
+    preview.alt = collections[m.key][currentLang].photos[0].caption || '';
+    preview.loading = 'lazy';
+    li.appendChild(btn);
+    li.appendChild(preview);
+    ul.appendChild(li);
+  });
+}
+
+/* ============================================================
+   D. 数据：摄影集内容
+   ============================================================ */
+const collections = {
+  china: {
+    zh: {
+      title: '中国游',
+      desc: '近些年，旅游在中国作为热门事物被推向一个又一个高潮。得益于特色的假期制度，以及特色的景区运营，我们会在每个假期看到如此多的人，以及如此多相似的标语、装饰、商业类型和旅拍。这是一个时代的特色，可能会存在很久，也有可能转瞬即逝。及时记录下来应该会是比较有趣的事情。',
+      photos: [
+        { src: 'images/Chinese_Tourism/Bijie_01.jpg', caption: '毕节 · 2026' },
+        { src: 'images/Chinese_Tourism/Datong_01.jpg', caption: '大同 · 2025' },
+        { src: 'images/Chinese_Tourism/Datong_03.jpg', caption: '大同 · 2025' },
+        { src: 'images/Chinese_Tourism/Datong_04.jpg', caption: '大同 · 2025' },
+        { src: 'images/Chinese_Tourism/Harbin_01.jpg', caption: '哈尔滨 · 2025' },
+        { src: 'images/Chinese_Tourism/Harbin_02.jpg', caption: '哈尔滨 · 2025' },
+        { src: 'images/Chinese_Tourism/Mangshi_01.jpg', caption: '芒市 · 2025' },
+        { src: 'images/Chinese_Tourism/Pingtan_01.jpg', caption: '平潭 · 2025' },
+        { src: 'images/Chinese_Tourism/Shanghai_01.jpg', caption: '上海 · 2026' },
+        { src: 'images/Chinese_Tourism/Shangqiu_01.jpg', caption: '商丘 · 2026' },
+        { src: 'images/Chinese_Tourism/Zhenyuan_01.jpg', caption: '镇远 · 2026' }
+      ]
+    },
+    en: {
+      title: ' Traveling in China',
+      desc: 'Travel in China has become a vivid record of mass leisure, symbolic landscapes, and the choreography of modern public life.',
+      photos: [
+        { src: 'images/Chinese_Tourism/Bijie_01.jpg', caption: 'Bijie · 2026' },
+        { src: 'images/Chinese_Tourism/Datong_01.jpg', caption: 'Datong · 2025' },
+        { src: 'images/Chinese_Tourism/Datong_03.jpg', caption: 'Datong · 2025' },
+        { src: 'images/Chinese_Tourism/Datong_04.jpg', caption: 'Datong · 2025' },
+        { src: 'images/Chinese_Tourism/Harbin_01.jpg', caption: 'Harbin · 2025' },
+        { src: 'images/Chinese_Tourism/Harbin_02.jpg', caption: 'Harbin · 2025' },
+        { src: 'images/Chinese_Tourism/Mangshi_01.jpg', caption: 'Mangshi · 2025' },
+        { src: 'images/Chinese_Tourism/Pingtan_01.jpg', caption: 'Pingtan · 2025' },
+        { src: 'images/Chinese_Tourism/Shanghai_01.jpg', caption: 'Shanghai · 2026' },
+        { src: 'images/Chinese_Tourism/Shangqiu_01.jpg', caption: 'Shangqiu · 2026' },
+        { src: 'images/Chinese_Tourism/Zhenyuan_01.jpg', caption: 'Zhenyuan · 2026' }
+      ]
+    }
+  },
+  southasia: {
+    zh: {
+      title: '北印度洋',
+      desc: '印度洋的季风每年两次转向，曾决定商船何时起锚，也把香料、乳香、咖啡、棉布、珍珠与瓷器送往不同海岸。随货物一起流动的，还有僧侣、苏菲、商人、水手、移民与朝圣者；佛教、印度教、伊斯兰教与地方信仰在港口、市场、寺庙、清真寺和祠堂里相遇，又迈向远方。',
+      photos: [
+        { src: 'images/Northern_Indian_Ocean/Khulna_1.JPG', caption: '库尔纳 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_1.JPG',  caption: '达卡 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Ayutthaya_01.jpg',  caption: '大城 · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Laos_01.jpg',  caption: '琅勃拉邦 · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Oman_01.JPG',  caption: ' 苏尔· 2026' },
+        { src: 'images/Northern_Indian_Ocean/Bangkok_01.JPG',  caption: '曼谷 · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_03.JPG',  caption: '达卡 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/SriLanka_01.JPG',  caption: '尼甘布 · 2015' },
+        { src: 'images/Northern_Indian_Ocean/Laos_02.JPG',  caption: '琅勃拉邦 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Srilanka_02.jpg',  caption: '尼甘布 · 2015' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_02.jpg',  caption: '达卡 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Sundarbans_01.jpg',  caption: '孙德尔本斯 · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Oman_02.jpg',  caption: '阿曼 · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Oman_03.jpg',  caption: '阿曼 · 2026' }
+
+      ]
+    },
+    en: {
+      title: 'Northern Indian Ocean',
+      desc: 'A study of monsoon routes, port cities, and the layered faiths and migrations that travel with them.',
+      photos: [
+        { src: 'images/Northern_Indian_Ocean/Khulna_1.JPG', caption: 'Khulna · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_1.JPG',  caption: 'Dhaka · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Ayutthaya_01.jpg',  caption: 'Ayutthaya · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Laos_01.jpg',  caption: 'Luang Prabang · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Oman_01.JPG',  caption: 'Sur · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Bangkok_01.JPG',  caption: 'Bangkok · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_03.JPG',  caption: 'Dhaka · 2024' },
+        { src: 'images/Northern_Indian_Ocean/SriLanka_01.JPG',  caption: 'Negombo · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Laos_02.JPG',  caption: 'Luang Prabang · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Srilanka_02.jpg',  caption: 'Negombo · 2015' },
+        { src: 'images/Northern_Indian_Ocean/Dhaka_02.jpg',  caption: 'Dhaka · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Sundarbans_01.jpg',  caption: 'Sundarbans · 2024' },
+        { src: 'images/Northern_Indian_Ocean/Oman_02.jpg',  caption: 'Oman · 2026' },
+        { src: 'images/Northern_Indian_Ocean/Oman_03.jpg',  caption: 'Oman · 2024' }
+      ]
+    }
+  },
+  seasia: {
+    zh: {
+      title: '无主之地',
+      desc: '总有些场景好似在梦中见过',
+      photos: [
+        { src: 'images/Borderlands/Angangxi_01.jpg', caption: '昂昂溪 · 2025' },
+        { src: 'images/Borderlands/Nanning_01.jpg', caption: '南宁 · 2026' },
+        { src: 'images/Borderlands/Axilixi_01.jpg', caption: '阿西里西 · 2026' },
+        { src: 'images/Borderlands/Badong_01.jpg', caption: '巴东 · 2025' },
+        { src: 'images/Borderlands/Bugt_01.jpg', caption: '博克图 · 2025' },
+        { src: 'images/Borderlands/Bugt_02.jpg', caption: '博克图 · 2025' },
+        { src: 'images/Borderlands/Chongqing_01.jpg', caption: '重庆 · 2025' },
+        { src: 'images/Borderlands/Dali_01.jpg', caption: '大理 · 2025' },
+        { src: 'images/Borderlands/Datong_02.jpg', caption: '大同 · 2025' },
+        { src: 'images/Borderlands/Fuxin_01.jpg', caption: '阜新 · 2026' },
+        { src: 'images/Borderlands/Fuxin_02.jpg', caption: '阜新 · 2026' },
+        { src: 'images/Borderlands/Jieyang_01.jpg', caption: '揭阳 · 2025' },
+        { src: 'images/Borderlands/Liupanshui_01.jpg', caption: '六盘水 · 2026' },
+        { src: 'images/Borderlands/Pingtan_02.jpg', caption: '平潭 · 2025' },
+        { src: 'images/Borderlands/WuxianLake_01.jpg', caption: '抚仙湖 · 2025' },
+        { src: 'images/Borderlands/WuxianLake_02.jpg', caption: '抚仙湖 · 2025' },
+        { src: 'images/Borderlands/YIwu_01.jpg', caption: '义乌 · 2025' },
+        { src: 'images/Borderlands/Yingxian_01.jpg', caption: '应县 · 2025' },
+        { src: 'images/Borderlands/Zhuozhou_01.jpg', caption: '涿州 · 2026' },
+        { src: 'images/Borderlands/Zigui_01.jpg', caption: '秭归 · 2025' }
+      ]
+    },
+    en: {
+      title: 'Borderlands',
+      desc: 'Scenes that feel half-remembered, where the land holds its own quiet memory.',
+      photos: [
+        { src: 'images/Borderlands/Angangxi_01.jpg', caption: 'Angangxi · 2025' },
+        { src: 'images/Borderlands/Nanning_01.jpg', caption: 'Nanning · 2026' },
+        { src: 'images/Borderlands/Axilixi_01.jpg', caption: 'Axilixi · 2025' },
+        { src: 'images/Borderlands/Badong_01.jpg', caption: 'Badong · 2025' },
+        { src: 'images/Borderlands/Bugt_01.jpg', caption: 'Bugt · 2025' },
+        { src: 'images/Borderlands/Bugt_02.jpg', caption: 'Bugt · 2025' },
+        { src: 'images/Borderlands/Chongqing_01.jpg', caption: 'Chongqing · 2025' },
+        { src: 'images/Borderlands/Dali_01.jpg', caption: 'Dali · 2025' },
+        { src: 'images/Borderlands/Datong_02.jpg', caption: 'Datong · 2025' },
+        { src: 'images/Borderlands/Fuxin_01.jpg', caption: 'Fuxin · 2026' },
+        { src: 'images/Borderlands/Fuxin_02.jpg', caption: 'Fuxin · 2026' },
+        { src: 'images/Borderlands/Jieyang_01.jpg', caption: 'Jieyang · 2025' },
+        { src: 'images/Borderlands/Liupanshui_01.jpg', caption: 'Liupanshui · 2026' },
+        { src: 'images/Borderlands/Pingtan_02.jpg', caption: 'Pingtan · 2025' },
+        { src: 'images/Borderlands/WuxianLake_01.jpg', caption: 'Wuxian Lake · 2025' },
+        { src: 'images/Borderlands/WuxianLake_02.jpg', caption: 'Wuxian Lake · 2025' },
+        { src: 'images/Borderlands/YIwu_01.jpg', caption: 'Yiwu · 2025' },
+        { src: 'images/Borderlands/Yingxian_01.jpg', caption: 'Yingxian · 2025' },
+        { src: 'images/Borderlands/Zhuozhou_01.jpg', caption: 'Zhuozhou · 2026' },
+        { src: 'images/Borderlands/Zigui_01.jpg', caption: 'Zigui · 2025' }
+      ]
+    }
+  },
+  still: {
+    zh: {
+      title: 'CCCP',
+      desc: '三十多年之后，我重新走回苏联的加盟共和国。这不是对“苏联”做纪念，而是在看它如何仍然留在地表、建筑、风景和人的身体里。',
+      photos: [
+        { src: 'images/CCCP/01.jpg', caption: '伊尔库茨克 · 2025' },
+        { src: 'images/CCCP/02.jpg', caption: '格鲁吉亚 · 2025' },
+        { src: 'images/CCCP/03.jpg', caption: '哈萨克斯坦 · 2025' },
+        { src: 'images/CCCP/DSCF5473.jpg', caption: '伊尔库茨克 · 2025' },
+        { src: 'images/CCCP/L1002690.jpg', caption: '格鲁吉亚 · 2025' },
+        { src: 'images/CCCP/L1003042.JPG', caption: '哈萨克斯坦 · 2025' },
+        { src: 'images/CCCP/L1003049.JPG', caption: '格鲁吉亚 · 2025' },
+        { src: 'images/CCCP/L1003228.JPG', caption: '伊尔库茨克 · 2025' },
+        { src: 'images/CCCP/L1003308.JPG', caption: '哈萨克斯坦 · 2025' },
+        { src: 'images/CCCP/L1003341.JPG', caption: '格鲁吉亚 · 2025' },
+        { src: 'images/CCCP/L1003967.jpg', caption: '伊尔库茨克 · 2025' },
+        { src: 'images/CCCP/L1004016.jpg', caption: '格鲁吉亚 · 2025' },
+        { src: 'images/CCCP/L1004172.jpg', caption: '哈萨克斯坦 · 2025' },
+        { src: 'images/CCCP/L1004333.jpg', caption: '伊尔库茨克 · 2025' },
+        { src: 'images/CCCP/L1004340.jpg', caption: '哈萨克斯坦 · 2025' },
+        { src: 'images/CCCP/L1004383.jpg', caption: '格鲁吉亚 · 2025' }
+      ]
+    },
+    en: {
+      title: 'CCCP',
+      desc: 'More than thirty years after the Soviet Union dissolved, I returned to Irkutsk, Georgia, and Kazakhstan. This project is not a memorial to a lost empire, but an inquiry into how its traces continue to live in landscape, architecture, and bodies.',
+      photos: [
+        { src: 'images/CCCP/01.jpg', caption: 'Irkutsk · 2025' },
+        { src: 'images/CCCP/02.jpg', caption: 'Georgia · 2025' },
+        { src: 'images/CCCP/03.jpg', caption: 'Kazakhstan · 2025' },
+        { src: 'images/CCCP/DSCF5473.jpg', caption: 'Irkutsk · 2025' },
+        { src: 'images/CCCP/L1002690.jpg', caption: 'Georgia · 2025' },
+        { src: 'images/CCCP/L1003042.JPG', caption: 'Kazakhstan · 2025' },
+        { src: 'images/CCCP/L1003049.JPG', caption: 'Georgia · 2025' },
+        { src: 'images/CCCP/L1003228.JPG', caption: 'Irkutsk · 2025' },
+        { src: 'images/CCCP/L1003308.JPG', caption: 'Kazakhstan · 2025' },
+        { src: 'images/CCCP/L1003341.JPG', caption: 'Georgia · 2025' },
+        { src: 'images/CCCP/L1003967.jpg', caption: 'Irkutsk · 2025' },
+        { src: 'images/CCCP/L1004016.jpg', caption: 'Georgia · 2025' },
+        { src: 'images/CCCP/L1004172.jpg', caption: 'Kazakhstan · 2025' },
+        { src: 'images/CCCP/L1004333.jpg', caption: 'Irkutsk · 2025' },
+        { src: 'images/CCCP/L1004340.jpg', caption: 'Kazakhstan · 2025' },
+        { src: 'images/CCCP/L1004383.jpg', caption: 'Georgia · 2025' }
+      ]
+    }
+  }
+};
+
+let currentCollectionKey = null;
+let currentPhotoItems = [];
+let currentPhotoIndex = 0;
+
+function selectPhoto(index) {
+  if (!currentPhotoItems.length) return;
+  currentPhotoIndex = (index + currentPhotoItems.length) % currentPhotoItems.length;
+  const photo = currentPhotoItems[currentPhotoIndex];
+  document.getElementById('photoFeatureImage').src = photo.src;
+  document.getElementById('photoFeatureImage').alt = photo.caption || '';
+  document.getElementById('photoFeatureCaption').textContent = photo.caption || '';
+  document.getElementById('photoFeatureCount').textContent = `${String(currentPhotoIndex + 1).padStart(2, '0')} / ${String(currentPhotoItems.length).padStart(2, '0')}`;
+  document.querySelectorAll('.photo-thumb').forEach((thumb, thumbIndex) => {
+    const selected = thumbIndex === currentPhotoIndex;
+    thumb.classList.toggle('active', selected);
+    thumb.setAttribute('aria-current', selected ? 'true' : 'false');
+  });
+}
+
+function openCollection(key, keepActive) {
+  const col = collections[key];
+  if (!col) return;
+  const d = col[currentLang];
+  currentCollectionKey = key;
+
+  document.getElementById('photoDetailTitle').textContent = d.title;
+  document.getElementById('photoDetailDesc').textContent = d.desc;
+
+  currentPhotoItems = d.photos;
+  currentPhotoIndex = keepActive ? Math.min(currentPhotoIndex, d.photos.length - 1) : 0;
+  const thumbnails = document.getElementById('photoThumbnails');
+  thumbnails.replaceChildren();
+  d.photos.forEach((photo, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'photo-thumb';
+    button.setAttribute('aria-label', photo.caption || `Photo ${index + 1}`);
+    const image = document.createElement('img');
+    image.src = photo.src;
+    image.alt = '';
+    image.loading = 'lazy';
+    const caption = document.createElement('span');
+    caption.textContent = photo.caption || '';
+    button.append(image, caption);
+    button.addEventListener('click', () => selectPhoto(index));
+    thumbnails.appendChild(button);
+  });
+  selectPhoto(currentPhotoIndex);
+
+  if (keepActive) return;
+
+  stopSlideshow();
+  document.getElementById('pagePhoto').classList.remove('active');
+  setTimeout(() => {
+    document.getElementById('pagePhotoDetail').classList.add('active');
+  }, 350);
+}
+
+/* ============================================================
+   E. 轮播 & Lightbox
+   ============================================================ */
+const slideshowImages = ['images/Northern Indian Ocean/Khulna_1.JPG', 'images/Northern Indian Ocean/Dhaka_1.JPG'];
+const slideshowEl = document.getElementById('photoSlideshow');
+let currentSlide = 0;
+let slideTimer = null;
+
+slideshowImages.forEach((src, i) => {
+  const div = document.createElement('div');
+  div.className = 'slide' + (i === 0 ? ' active' : '');
+  div.innerHTML = `<img src="${src}" alt="">`;
+  slideshowEl.appendChild(div);
+});
+
+const slideNodes = slideshowEl.querySelectorAll('.slide');
+const slideshowEnabled = false;
+
+function nextSlide() {
+  slideNodes[currentSlide].classList.remove('active');
+  currentSlide = (currentSlide + 1) % slideNodes.length;
+  slideNodes[currentSlide].classList.add('active');
+}
+function startSlideshow() {
+  stopSlideshow();
+  if (!slideshowEnabled) return;
+  if (slideNodes.length > 1) slideTimer = setInterval(nextSlide, 5000);
+}
+function stopSlideshow() {
+  if (slideTimer) { clearInterval(slideTimer); slideTimer = null; }
+}
+
+const lightbox = document.getElementById('lightbox');
+const lbImage = document.getElementById('lbImage');
+const lbCaption = document.getElementById('lbCaption');
+let lbPhotos = [];
+let lbIndex = 0;
+
+function openLightbox(photos, index) {
+  lbPhotos = photos;
+  lbIndex = index;
+  updateLightbox();
+  lightbox.classList.add('active');
+}
+function updateLightbox() {
+  const p = lbPhotos[lbIndex];
+  lbImage.src = p.src;
+  lbImage.alt = p.caption || '';
+  lbCaption.textContent = p.caption || '';
+}
+
+document.getElementById('photoPrev').addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  selectPhoto(currentPhotoIndex - 1);
+});
+document.getElementById('photoNext').addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  selectPhoto(currentPhotoIndex + 1);
+});
+document.getElementById('photoFeatureImage').addEventListener('click', () => openLightbox(currentPhotoItems, currentPhotoIndex));
+document.addEventListener('keydown', (event) => {
+  if (lightbox.classList.contains('active') || !document.getElementById('pagePhotoDetail').classList.contains('active')) return;
+  if (event.key === 'ArrowLeft') selectPhoto(currentPhotoIndex - 1);
+  if (event.key === 'ArrowRight') selectPhoto(currentPhotoIndex + 1);
+});
+
+document.getElementById('lbClose').addEventListener('click', () => lightbox.classList.remove('active'));
+document.getElementById('lbPrev').addEventListener('click', (e) => {
+  e.stopPropagation();
+  lbIndex = (lbIndex - 1 + lbPhotos.length) % lbPhotos.length;
+  updateLightbox();
+});
+document.getElementById('lbNext').addEventListener('click', (e) => {
+  e.stopPropagation();
+  lbIndex = (lbIndex + 1) % lbPhotos.length;
+  updateLightbox();
+});
+lightbox.addEventListener('click', (e) => {
+  if (e.target === lightbox) lightbox.classList.remove('active');
+});
+document.addEventListener('keydown', (e) => {
+  if (!lightbox.classList.contains('active')) return;
+  if (e.key === 'Escape') lightbox.classList.remove('active');
+  if (e.key === 'ArrowLeft')  { lbIndex = (lbIndex - 1 + lbPhotos.length) % lbPhotos.length; updateLightbox(); }
+  if (e.key === 'ArrowRight') { lbIndex = (lbIndex + 1) % lbPhotos.length; updateLightbox(); }
+});
+
+/* ============================================================
+   F. 下雨 → 积水 → 文字漂浮
+   ============================================================ */
+
+/* ---------- F1. 状态 ---------- */
+const rainCanvas = document.getElementById('rainCanvas');
+const rainCtx = rainCanvas.getContext('2d');
+const floodEl = document.getElementById('flood');
+const heroInnerEl = document.getElementById('heroInner');
+const nameEl = document.getElementById('nameEl');
+
+let phase = 'idle';
+let rainElapsed = 0;
+let rainDensity = 0;
+let floodHeight = 0;
+let rainDrops = [];
+let spawnAccumulator = 0;
+let lastTime = 0;
+let rainAnimId = null;
+
+let floatUnits = [];
+
+/* 常量 */
+const RAIN_DURATION     = 10;
+const FLOOD_FULL_TIME   = 20;
+const FLOOD_MAX_FACTOR  = 2.2;
+const FLOOD_VISUAL_CAP  = 1.4;
+const RAIN_BASE_RATE    = 15;
+const RAIN_MAX_RATE     = 260;
+const RAIN_MAX_DROPS    = 500;
+
+/* ---------- F2. 拆分字符 ---------- */
+function splitToChars(el) {
+  const nodes = [...el.childNodes];
+  el.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  nodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      for (const ch of node.textContent) {
+        if (ch === '\n') continue;
+        const span = document.createElement('span');
+        span.className = 'float-char';
+        if (ch === ' ') {
+          span.classList.add('float-space');
+          span.innerHTML = '&nbsp;';
+        } else {
+          span.textContent = ch;
+        }
+        frag.appendChild(span);
+      }
+    } else if (node.nodeName === 'BR') {
+      frag.appendChild(document.createElement('br'));
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      frag.appendChild(node.cloneNode(true));
+    }
+  });
+
+  el.appendChild(frag);
+}
+
+function splitNameToChars() {
+  if (nameEl.querySelector('.float-char')) return;
+  splitToChars(nameEl);
+}
+
+function splitBioToChars() {
+  document.querySelectorAll('.bio-line').forEach(line => {
+    if (!line.querySelector('.float-char')) splitToChars(line);
+  });
+}
+
+function resetCharSplitting() {
+  nameEl.textContent = 'LI JUNFENG';
+  document.querySelectorAll('.bio-line').forEach(line => {
+    if (line.querySelector('.float-char')) {
+      line.textContent = line.textContent;
+    }
+  });
+  splitNameToChars();
+  splitBioToChars();
+}
+
+/* ---------- F3. 收集漂浮单元 ---------- */
+function collectFloatables() {
+  floatUnits = [];
+
+  const register = (el, opts) => {
+    opts = opts || {};
+    floatUnits.push({
+      el,
+      anchorCenter: !!opts.anchorCenter,
+      active: false,
+      floodedAt: 0,
+      startFloodHeight: 0,
+      seed: Math.random() * 1000,
+      rotPhase: Math.random() * Math.PI * 2,
+      rotAmp: 3 + Math.random() * 4,
+      bobAmp: 2 + Math.random() * 3,
+      driftVx: (Math.random() - 0.5) * 8,
+      x: 0, y: 0, rot: 0
+    });
+  };
+
+  nameEl.querySelectorAll('.float-char').forEach(el => register(el));
+
+  document.querySelectorAll('.bio-line').forEach(line => {
+    line.querySelectorAll('.float-char').forEach(el => register(el));
+  });
+
+  const avatar = document.querySelector('.avatar');
+  if (avatar) register(avatar, { anchorCenter: true });
+
+  document.querySelectorAll('.lang-btn').forEach(el => register(el));
+
+  return floatUnits;
+}
+
+function applyTransform(u) {
+  u.el.style.transform = u.anchorCenter
+    ? `translate(calc(-50% + ${u.x}px), ${u.y}px) rotate(${u.rot}deg)`
+    : `translate(${u.x}px, ${u.y}px) rotate(${u.rot}deg)`;
+}
+
+function resetFloatUnits() {
+  floatUnits.forEach(u => {
+    u.active = false;
+    u.floodedAt = 0;
+    u.startFloodHeight = 0;
+    u.x = u.y = u.rot = 0;
+    u.el.style.transform = '';
+    u.el.style.pointerEvents = '';
+  });
+}
+
+/* ---------- F4. Canvas & 雨滴 ---------- */
+function resizeRainCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  rainCanvas.width = window.innerWidth * dpr;
+  rainCanvas.height = window.innerHeight * dpr;
+  rainCanvas.style.width = window.innerWidth + 'px';
+  rainCanvas.style.height = window.innerHeight + 'px';
+  rainCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function createDrop() {
+  const W = window.innerWidth;
+  return {
+    x: Math.random() * W,
+    y: -20 - Math.random() * 60,
+    vy: 500 + Math.random() * 300,
+    vx: -15 - Math.random() * 25,
+    len: 7 + Math.random() * 14,
+    thickness: 0.5 + Math.random() * 0.6,
+    opacity: 0.15 + Math.random() * 0.32
+  };
+}
+
+/* ---------- F5. 主循环 ---------- */
+function tick(now) {
+  const dt = lastTime ? Math.min((now - lastTime) / 1000, 0.05) : 0.016;
+  lastTime = now;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+
+  if (phase === 'raining' || phase === 'flooding') {
+    rainElapsed += dt;
+
+    const tRain = Math.min(1, rainElapsed / RAIN_DURATION);
+    rainDensity = tRain * tRain;
+
+    const tFloodRaw = rainElapsed / FLOOD_FULL_TIME;
+    const floodProgress = Math.min(1.0, Math.pow(Math.max(tFloodRaw, 0), 1.15));
+    floodHeight = H * FLOOD_MAX_FACTOR * floodProgress;
+
+    floodEl.style.transition = 'none';
+    floodEl.style.height = Math.min(floodHeight, H * FLOOD_VISUAL_CAP) + 'px';
+  }
+
+  const waterTopY = H - Math.min(floodHeight, H * FLOOD_VISUAL_CAP);
+
+  if (phase === 'raining' || phase === 'flooding') {
+    const spawnRate = RAIN_BASE_RATE + rainDensity * rainDensity * RAIN_MAX_RATE;
+    spawnAccumulator += spawnRate * dt;
+    while (spawnAccumulator >= 1) {
+      spawnAccumulator -= 1;
+      if (rainDrops.length < RAIN_MAX_DROPS) rainDrops.push(createDrop());
+    }
+  }
+
+  rainCtx.clearRect(0, 0, W, H);
+  rainCtx.lineCap = 'round';
+
+  for (let i = rainDrops.length - 1; i >= 0; i--) {
+    const d = rainDrops[i];
+
+    if (d.y > waterTopY) {
+      rainDrops.splice(i, 1);
+      continue;
+    }
+
+    d.y += d.vy * dt;
+    d.x += d.vx * dt;
+
+    if (d.y > waterTopY) {
+      rainDrops.splice(i, 1);
+      continue;
+    }
+
+    if (d.y > H + 30 || d.x < -30) {
+      rainDrops.splice(i, 1);
+      continue;
+    }
+
+    rainCtx.beginPath();
+    rainCtx.moveTo(d.x, d.y);
+    rainCtx.lineTo(d.x - d.len * 0.18, d.y + d.len);
+    rainCtx.strokeStyle = `rgba(60, 75, 100, ${d.opacity})`;
+    rainCtx.lineWidth = d.thickness;
+    rainCtx.stroke();
+  }
+
+  if (phase === 'raining' || phase === 'flooding') {
+    let anyActive = false;
+
+    floatUnits.forEach(u => {
+      if (u.active) { anyActive = true; return; }
+      const rect = u.el.getBoundingClientRect();
+      const midY = rect.top + rect.height * 0.65;
+      if (midY >= waterTopY) {
+        if (!u.floodedAt) u.floodedAt = now + Math.random() * 500;
+        if (now >= u.floodedAt) {
+          u.active = true;
+          u.startFloodHeight = floodHeight;
+          anyActive = true;
+          u.el.style.pointerEvents = 'none';
+        }
+      }
+    });
+
+    if (anyActive && phase === 'raining') {
+      phase = 'flooding';
+      heroInnerEl.classList.add('floating');
+    }
+  }
+
+  if (phase === 'flooding') {
+    floatUnits.forEach(u => {
+      if (!u.active) return;
+
+      const delta = floodHeight - u.startFloodHeight;
+      const bob = Math.sin(now * 0.0012 + u.seed) * u.bobAmp;
+
+      u.y = -delta + bob;
+      u.x += u.driftVx * dt;
+      u.x *= 0.995;
+      u.rot = Math.sin(now * 0.001 + u.rotPhase) * u.rotAmp;
+
+      applyTransform(u);
+    });
+
+    const allGone = floatUnits.every(u => u.el.getBoundingClientRect().bottom < -60);
+    if (allGone) resetRainScene();
+  }
+
+  if (phase === 'idle') {
+    rainAnimId = null;
+    lastTime = 0;
+    return;
+  }
+  rainAnimId = requestAnimationFrame(tick);
+}
+
+/* ---------- F6. 启动 / 重置 ---------- */
+function startRain() {
+  if (phase !== 'idle') return;
+
+  phase = 'raining';
+  rainElapsed = 0;
+  rainDensity = 0;
+  floodHeight = 0;
+  rainDrops = [];
+  spawnAccumulator = 0;
+  lastTime = 0;
+
+  collectFloatables();
+  resetFloatUnits();
+  heroInnerEl.classList.remove('floating');
+
+  resizeRainCanvas();
+  rainCanvas.classList.add('active');
+  floodEl.style.transition = 'none';
+  floodEl.style.height = '0px';
+
+  if (!rainAnimId) rainAnimId = requestAnimationFrame(tick);
+}
+
+function resetRainScene() {
+  phase = 'idle';
+  rainElapsed = 0;
+  rainDensity = 0;
+  rainDrops = [];
+  spawnAccumulator = 0;
+  lastTime = 0;
+
+  resetFloatUnits();
+  heroInnerEl.classList.remove('floating');
+
+  floodEl.style.transition = 'height 1.6s cubic-bezier(0.16, 1, 0.3, 1)';
+  floodEl.style.height = '0px';
+  floodHeight = 0;
+
+  rainCanvas.classList.remove('active');
+  setTimeout(() => {
+    if (phase === 'idle') {
+      rainCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      rainDrops = [];
+    }
+  }, 1200);
+}
+
+heroInnerEl.addEventListener('mouseenter', startRain);
+heroInnerEl.addEventListener('mouseleave', () => {
+  const anyFloating = floatUnits.some(u => u.active);
+  if (phase === 'raining' && !anyFloating) resetRainScene();
+});
+
+window.addEventListener('resize', () => {
+  if (phase !== 'idle') resizeRainCanvas();
+});
+
+/* ============================================================
+   G. 页面导航
+   ============================================================ */
+
+// 点击名字 → 直接进入摄影集
+document.getElementById('heroInner').addEventListener('click', () => {
+  if (phase !== 'idle') resetRainScene();
+  hero.classList.add('hidden');
+  hint.classList.add('hidden');
+  setTimeout(() => {
+    document.getElementById('pagePhoto').classList.add('active');
+    startSlideshow();
+  }, 350);
+});
+
+// 摄影集 → 返回 Hero
+document.getElementById('backToHero').addEventListener('click', () => {
+  stopSlideshow();
+  document.getElementById('pagePhoto').classList.remove('active');
+  setTimeout(() => {
+    hero.classList.remove('hidden');
+    hint.classList.remove('hidden');
+  }, 350);
+});
+
+// 摄影详情 → 返回摄影集
+document.getElementById('backToPhoto').addEventListener('click', () => {
+  lightbox.classList.remove('active');
+  document.getElementById('pagePhotoDetail').classList.remove('active');
+  setTimeout(() => {
+    document.getElementById('pagePhoto').classList.add('active');
+    startSlideshow();
+  }, 350);
+});
+
+/* ============================================================
+   H. 初始化
+   ============================================================ */
+renderMenu();
+applyStaticText();
+
+splitNameToChars();
+splitBioToChars();
+
+document.querySelectorAll('.lang-btn').forEach(b => {
+  b.classList.toggle('active', b.dataset.lang === currentLang);
+});
+</script>
+</body>
+</html>
